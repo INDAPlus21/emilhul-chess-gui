@@ -542,7 +542,7 @@ impl event::EventHandler<GameError> for AppState {
     /// Update game on mouse click
     fn mouse_button_down_event(
         &mut self,
-        ctx: &mut Context,
+        _ctx: &mut Context,
         button: event::MouseButton,
         x: f32,
         y: f32,
@@ -577,6 +577,7 @@ impl event::EventHandler<GameError> for AppState {
                                             &self.game.board,
                                             self.game.en_passant_square,
                                             self.game.castlings,
+                                            self.game.current_turn,
                                         );
                                 };
                             };
@@ -594,6 +595,7 @@ impl event::EventHandler<GameError> for AppState {
                                         &self.game.board,
                                         self.game.en_passant_square,
                                         self.game.castlings,
+                                        self.game.current_turn,
                                     );
                             };
                         };
