@@ -2,6 +2,8 @@ use ggez::{conf, event, graphics, Context, ContextBuilder, GameError, GameResult
 use murnion_chess::{Colour, Game, Piece};
 use std::path;
 
+mod draw;
+
 /// A chess board is 8x8 tiles.
 const GRID_SIZE: i16 = 8;
 /// Sutible size of each tile.
@@ -28,8 +30,8 @@ const CERISE: graphics::Color =
     graphics::Color::new(222f32 / 255f32, 49f32 / 255f32, 99f32 / 255f32, 0.15f32);
 
 /// GUI logic and event implementation structure.
-struct AppState {
-    sprites: Vec<(Piece, graphics::Image)>,
+pub struct AppState {
+    pub sprites: Vec<(Piece, graphics::Image)>,
     game: Game, // Save piece positions, which tiles has been clicked, current colour, etc...
     selected_square: Option<(usize, usize)>,
     highlighted_squares: Vec<(usize, usize)>,
@@ -59,26 +61,14 @@ impl AppState {
             (Piece::Queen(Colour::Black), "/black_queen.png".to_string()),
             (Piece::Rook(Colour::Black), "/black_rook.png".to_string()),
             (Piece::Pawn(Colour::Black), "/black_pawn.png".to_string()),
-            (
-                Piece::Bishop(Colour::Black),
-                "/black_bishop.png".to_string(),
-            ),
-            (
-                Piece::Knight(Colour::Black),
-                "/black_knight.png".to_string(),
-            ),
+            (Piece::Bishop(Colour::Black), "/black_bishop.png".to_string()),
+            (Piece::Knight(Colour::Black), "/black_knight.png".to_string()),
             (Piece::King(Colour::White), "/white_king.png".to_string()),
             (Piece::Queen(Colour::White), "/white_queen.png".to_string()),
             (Piece::Rook(Colour::White), "/white_rook.png".to_string()),
             (Piece::Pawn(Colour::White), "/white_pawn.png".to_string()),
-            (
-                Piece::Bishop(Colour::White),
-                "/white_bishop.png".to_string(),
-            ),
-            (
-                Piece::Knight(Colour::White),
-                "/white_knight.png".to_string(),
-            ),
+            (Piece::Bishop(Colour::White), "/white_bishop.png".to_string()),
+            (Piece::Knight(Colour::White), "/white_knight.png".to_string()),
         ]
         .iter()
         .map(|(_piece, _path)| (*_piece, graphics::Image::new(ctx, _path).unwrap()))
@@ -97,390 +87,15 @@ impl event::EventHandler<GameError> for AppState {
         // clear interface with gray background colour
         graphics::clear(ctx, CONTRAST_COLOR);
 
-        // draw grid
-        for _row in 0..8 {
-            for _col in 0..8 {
-                // draw tile
-                let rectangle = graphics::Mesh::new_rectangle(
-                    ctx,
-                    graphics::DrawMode::fill(),
-                    graphics::Rect::new_i32(
-                        _col * GRID_CELL_SIZE.0 as i32,
-                        _row * GRID_CELL_SIZE.1 as i32,
-                        GRID_CELL_SIZE.0 as i32,
-                        GRID_CELL_SIZE.1 as i32,
-                    ),
-                    match _col % 2 {
-                        0 => {
-                            if _row % 2 == 0 {
-                                WHITE
-                            } else {
-                                BLACK
-                            }
-                        }
-                        _ => {
-                            if _row % 2 == 0 {
-                                BLACK
-                            } else {
-                                WHITE
-                            }
-                        }
-                    },
-                )
-                .expect("Failed to create tile.");
-                graphics::draw(ctx, &rectangle, graphics::DrawParam::default())
-                    .expect("Failed to draw tiles.");
+        // Draw grid
+        draw::board(&self, ctx);
+        
+        // Draw promotion selector
+        draw::promotion_selector(&self, ctx);
 
-                // Draw highlighted_squares
-                if self
-                    .highlighted_squares
-                    .contains(&(_row as usize, _col as usize))
-                {
-                    let rectangle = graphics::Mesh::new_rectangle(
-                        ctx,
-                        graphics::DrawMode::fill(),
-                        graphics::Rect::new_i32(
-                            _col * GRID_CELL_SIZE.0 as i32,
-                            _row * GRID_CELL_SIZE.1 as i32,
-                            GRID_CELL_SIZE.0 as i32,
-                            GRID_CELL_SIZE.1 as i32,
-                        ),
-                        HIGHLIGHTED_COLOR,
-                    )
-                    .expect("Failed to create highlight tile.");
-                    graphics::draw(ctx, &rectangle, graphics::DrawParam::default())
-                        .expect("Failed to draw highlight tile");
-                }
-
-                // Draw selected square
-                if let Some(t) = self.selected_square {
-                    if _col == t.1 as i32 && _row == t.0 as i32 {
-                        let rectangle = graphics::Mesh::new_rectangle(
-                            ctx,
-                            graphics::DrawMode::fill(),
-                            graphics::Rect::new_i32(
-                                _col * GRID_CELL_SIZE.0 as i32,
-                                _row * GRID_CELL_SIZE.1 as i32,
-                                GRID_CELL_SIZE.0 as i32,
-                                GRID_CELL_SIZE.1 as i32,
-                            ),
-                            SELECTED_COLOR,
-                        )
-                        .expect("Failed to create selected tile.");
-                        graphics::draw(ctx, &rectangle, graphics::DrawParam::default())
-                            .expect("Failed to draw selected tile");
-                    }
-                }
-                // Draw piece
-                match self.game.board[_row as usize][_col as usize] {
-                    Piece::Empty => (),
-                    _piece => {
-                        let sprite = match self.sprites.iter().find(|x| x.0 == _piece) {
-                            Some(x) => x.1.clone(),
-                            _ => panic!("No piece"),
-                        };
-                        graphics::draw(
-                            ctx,
-                            &sprite,
-                            graphics::DrawParam::default()
-                                .scale([2.0, 2.0]) // Tile size is 90 pixels, while image sizes are 45 pixels.
-                                .dest([
-                                    _col as f32 * GRID_CELL_SIZE.0 as f32,
-                                    _row as f32 * GRID_CELL_SIZE.1 as f32,
-                                ]),
-                        )
-                        .expect("Failed to draw piece.");
-                    }
-                }
-            }
-        }
-
-        {
-            //Draws promotion selector
-            {
-                //Draws squares
-                let rectangle = graphics::Mesh::new_rectangle(
-                    ctx,
-                    graphics::DrawMode::fill(),
-                    graphics::Rect::new_i32(
-                        (8f32 * GRID_CELL_SIZE.0 as f32 + 0.5f32 * GRID_CELL_SIZE.0 as f32) as i32,
-                        GRID_CELL_SIZE.1 as i32,
-                        GRID_CELL_SIZE.0 as i32,
-                        GRID_CELL_SIZE.1 as i32,
-                    ),
-                    BLACK,
-                )
-                .expect("Failed to create highlight tile.");
-                graphics::draw(ctx, &rectangle, graphics::DrawParam::default())
-                    .expect("Failed to draw highlight tile");
-                let rectangle = graphics::Mesh::new_rectangle(
-                    ctx,
-                    graphics::DrawMode::fill(),
-                    graphics::Rect::new_i32(
-                        (9f32 * GRID_CELL_SIZE.0 as f32 + 0.5f32 * GRID_CELL_SIZE.0 as f32) as i32,
-                        GRID_CELL_SIZE.1 as i32,
-                        GRID_CELL_SIZE.0 as i32,
-                        GRID_CELL_SIZE.1 as i32,
-                    ),
-                    WHITE,
-                )
-                .expect("Failed to create highlight tile.");
-                graphics::draw(ctx, &rectangle, graphics::DrawParam::default())
-                    .expect("Failed to draw highlight tile");
-                let rectangle = graphics::Mesh::new_rectangle(
-                    ctx,
-                    graphics::DrawMode::fill(),
-                    graphics::Rect::new_i32(
-                        (9f32 * GRID_CELL_SIZE.0 as f32 + 0.5f32 * GRID_CELL_SIZE.0 as f32) as i32,
-                        2 * GRID_CELL_SIZE.1 as i32,
-                        GRID_CELL_SIZE.0 as i32,
-                        GRID_CELL_SIZE.1 as i32,
-                    ),
-                    BLACK,
-                )
-                .expect("Failed to create highlight tile.");
-                graphics::draw(ctx, &rectangle, graphics::DrawParam::default())
-                    .expect("Failed to draw highlight tile");
-                let rectangle = graphics::Mesh::new_rectangle(
-                    ctx,
-                    graphics::DrawMode::fill(),
-                    graphics::Rect::new_i32(
-                        (8f32 * GRID_CELL_SIZE.0 as f32 + 0.5f32 * GRID_CELL_SIZE.0 as f32) as i32,
-                        2 * GRID_CELL_SIZE.1 as i32,
-                        GRID_CELL_SIZE.0 as i32,
-                        GRID_CELL_SIZE.1 as i32,
-                    ),
-                    WHITE,
-                )
-                .expect("Failed to create highlight tile.");
-                graphics::draw(ctx, &rectangle, graphics::DrawParam::default())
-                    .expect("Failed to draw highlight tile");
-            }
-            {
-                // Draws pieces. Color of the pieces changes depending on which piece is selected for promotion.
-                let sprite = match self.sprites.iter().find(|x| {
-                    x.0 == Piece::Queen(match self.game.selected_promotion {
-                        Piece::Queen(_colour) => Colour::Black,
-                        _ => Colour::White,
-                    })
-                }) {
-                    Some(x) => x.1.clone(),
-                    _ => panic!("No piece"),
-                };
-                graphics::draw(
-                    ctx,
-                    &sprite,
-                    graphics::DrawParam::default()
-                        .scale([2.0, 2.0]) // Tile size is 90 pixels, while image sizes are 45 pixels.
-                        .dest([
-                            8f32 * GRID_CELL_SIZE.0 as f32 + 0.5f32 * GRID_CELL_SIZE.0 as f32,
-                            GRID_CELL_SIZE.1 as f32,
-                        ]),
-                )
-                .expect("Failed to draw piece.");
-                let sprite = match self.sprites.iter().find(|x| {
-                    x.0 == Piece::Rook(match self.game.selected_promotion {
-                        Piece::Rook(_colour) => Colour::Black,
-                        _ => Colour::White,
-                    })
-                }) {
-                    Some(x) => x.1.clone(),
-                    _ => panic!("No piece"),
-                };
-                graphics::draw(
-                    ctx,
-                    &sprite,
-                    graphics::DrawParam::default()
-                        .scale([2.0, 2.0]) // Tile size is 90 pixels, while image sizes are 45 pixels.
-                        .dest([
-                            9f32 * GRID_CELL_SIZE.0 as f32 + 0.5f32 * GRID_CELL_SIZE.0 as f32,
-                            GRID_CELL_SIZE.1 as f32,
-                        ]),
-                )
-                .expect("Failed to draw piece.");
-                let sprite = match self.sprites.iter().find(|x| {
-                    x.0 == Piece::Bishop(match self.game.selected_promotion {
-                        Piece::Bishop(_colour) => Colour::Black,
-                        _ => Colour::White,
-                    })
-                }) {
-                    Some(x) => x.1.clone(),
-                    _ => panic!("No piece"),
-                };
-                graphics::draw(
-                    ctx,
-                    &sprite,
-                    graphics::DrawParam::default()
-                        .scale([2.0, 2.0]) // Tile size is 90 pixels, while image sizes are 45 pixels.
-                        .dest([
-                            8f32 * GRID_CELL_SIZE.0 as f32 + 0.5f32 * GRID_CELL_SIZE.0 as f32,
-                            2f32 * GRID_CELL_SIZE.1 as f32,
-                        ]),
-                )
-                .expect("Failed to draw piece.");
-                let sprite = match self.sprites.iter().find(|x| {
-                    x.0 == Piece::Knight(match self.game.selected_promotion {
-                        Piece::Knight(_colour) => Colour::Black,
-                        _ => Colour::White,
-                    })
-                }) {
-                    Some(x) => x.1.clone(),
-                    _ => panic!("No piece"),
-                };
-                graphics::draw(
-                    ctx,
-                    &sprite,
-                    graphics::DrawParam::default()
-                        .scale([2.0, 2.0]) // Tile size is 90 pixels, while image sizes are 45 pixels.
-                        .dest([
-                            9f32 * GRID_CELL_SIZE.0 as f32 + 0.5f32 * GRID_CELL_SIZE.0 as f32,
-                            2f32 * GRID_CELL_SIZE.1 as f32,
-                        ]),
-                )
-                .expect("Failed to draw piece.");
-            }
-        }
-        {
-            // Draw the history
-            // Draw history label text
-            let history_text = graphics::Text::new(
-                graphics::TextFragment::from(format!("History"))
-                    .scale(graphics::PxScale { x: 30.0, y: 30.0 }),
-            );
-            let history_text_dimensions = history_text.dimensions(ctx);
-            graphics::draw(
-                ctx,
-                &history_text,
-                graphics::DrawParam::default()
-                    .color(WHITE)
-                    .dest(ggez::mint::Point2 {
-                        x: (GRID_CELL_SIZE.0 as f32 * GRID_SIZE as f32)
-                            + (270f32 - history_text_dimensions.w as f32) / 2f32,
-                        y: (GRID_CELL_SIZE.1 as f32 * 3f32) + (GRID_CELL_SIZE.1 as f32 / 8f32),
-                    }),
-            )
-            .expect("Failed to draw text.");
-            // Draw squares and count
-            for i in 0..12 {
-                // Draws squares
-                let rectangle = graphics::Mesh::new_rectangle(
-                    ctx,
-                    graphics::DrawMode::fill(),
-                    graphics::Rect::new_i32(
-                        (8f32 * GRID_CELL_SIZE.0 as f32
-                            + 0.5f32 * GRID_CELL_SIZE.0 as f32
-                            + GRID_CELL_SIZE.0 as f32 / 3f32) as i32,
-                        (GRID_CELL_SIZE.1 as f32 * 3.5f32
-                            + (GRID_CELL_SIZE.1 as f32 * i as f32) / 3f32)
-                            as i32,
-                        (GRID_CELL_SIZE.0 as f32 * 2f32 / 3f32) as i32,
-                        (GRID_CELL_SIZE.1 as f32 / 3f32) as i32,
-                    ),
-                    match i % 2 {
-                        0 => WHITE,
-                        1 => BLACK,
-                        _ => panic!("How???"),
-                    },
-                )
-                .expect("Failed to create history background.");
-                graphics::draw(ctx, &rectangle, graphics::DrawParam::default())
-                    .expect("Failed to draw history background");
-                let rectangle = graphics::Mesh::new_rectangle(
-                    ctx,
-                    graphics::DrawMode::fill(),
-                    graphics::Rect::new_i32(
-                        (8f32 * GRID_CELL_SIZE.0 as f32 + 1.5f32 * GRID_CELL_SIZE.0 as f32) as i32,
-                        (GRID_CELL_SIZE.1 as f32 * 3.5f32
-                            + (GRID_CELL_SIZE.1 as f32 * i as f32) / 3f32)
-                            as i32,
-                        (GRID_CELL_SIZE.0 as f32 * 2f32 / 3f32) as i32,
-                        (GRID_CELL_SIZE.1 as f32 / 3f32) as i32,
-                    ),
-                    match i % 2 {
-                        0 => BLACK,
-                        1 => WHITE,
-                        _ => panic!("How???"),
-                    },
-                )
-                .expect("Failed to create history background.");
-                graphics::draw(ctx, &rectangle, graphics::DrawParam::default())
-                    .expect("Failed to draw history background");
-
-                // Draw count
-                let history_text = graphics::Text::new(
-                    graphics::TextFragment::from(format!("{:?}", i + 1))
-                        .scale(graphics::PxScale { x: 30.0, y: 30.0 }),
-                );
-                let history_text_dimensions = history_text.dimensions(ctx);
-                graphics::draw(
-                    ctx,
-                    &history_text,
-                    graphics::DrawParam::default()
-                        .color(WHITE)
-                        .dest(ggez::mint::Point2 {
-                            x: (GRID_CELL_SIZE.0 as f32 * GRID_SIZE as f32)
-                                + (GRID_CELL_SIZE.0 as f32 * 1.5f32
-                                    - history_text_dimensions.w as f32)
-                                    / 3f32,
-                            y: (GRID_CELL_SIZE.1 as f32 * 3.5f32)
-                                + (GRID_CELL_SIZE.1 as f32 * i as f32) / 3f32,
-                        }),
-                )
-                .expect("Failed to draw text.");
-            }
-            // Draw out history text
-            for i in 0..24 {
-                if i < self.history.len() {
-                    match i % 2 {
-                        0 => {
-                            let history_text = graphics::Text::new(
-                                graphics::TextFragment::from(format!("{:?}", i + 1))
-                                    .scale(graphics::PxScale { x: 30.0, y: 30.0 }),
-                            );
-                            let history_text_dimensions = history_text.dimensions(ctx);
-                            graphics::draw(
-                                ctx,
-                                &history_text,
-                                graphics::DrawParam::default().color(CONTRAST_COLOR).dest(
-                                    ggez::mint::Point2 {
-                                        x: (GRID_CELL_SIZE.0 as f32 * GRID_SIZE as f32)
-                                            + (105f32 - history_text_dimensions.w / 2f32),
-                                        y: (GRID_CELL_SIZE.1 as f32 * 3.5f32)
-                                            + (GRID_CELL_SIZE.1 as f32 * ((i / 2) as f32).ceil())
-                                                / 3f32,
-                                    },
-                                ),
-                            )
-                            .expect("Failed to draw text.");
-                        }
-                        1 => {
-                            let history_text = graphics::Text::new(
-                                graphics::TextFragment::from(format!("{:?}", i + 1))
-                                    .scale(graphics::PxScale { x: 30.0, y: 30.0 }),
-                            );
-                            let history_text_dimensions = history_text.dimensions(ctx);
-                            graphics::draw(
-                                ctx,
-                                &history_text,
-                                graphics::DrawParam::default().color(CONTRAST_COLOR).dest(
-                                    ggez::mint::Point2 {
-                                        x: (GRID_CELL_SIZE.0 as f32 * GRID_SIZE as f32)
-                                            + (165f32 - history_text_dimensions.w / 2f32),
-                                        y: (GRID_CELL_SIZE.1 as f32 * 3.5f32)
-                                            + (GRID_CELL_SIZE.1 as f32 * ((i / 2) as f32).ceil())
-                                                / 3f32,
-                                    },
-                                ),
-                            )
-                            .expect("Failed to draw text.");
-                        }
-                        _ => panic!("How 2?"),
-                    }
-                } else {
-                    break;
-                }
-            }
-        }
+        // Draw history
+        draw::history(&self, ctx);
+        
         // create text representation
         let turn_text = graphics::Text::new(
             graphics::TextFragment::from(format!("Turn: {:?}", self.game.turn))
@@ -560,6 +175,7 @@ impl event::EventHandler<GameError> for AppState {
                                 self.history.push(self.game.get_fen());
                                 self.game
                                     .take_turn(move_to_string((t.0, t.1), (rank, file)));
+                                self.game.select_promotion(piece_to_char(self.game.selected_promotion));
                             }
                             self.selected_square = None;
                             self.highlighted_squares = Vec::new();
@@ -623,39 +239,40 @@ impl event::EventHandler<GameError> for AppState {
                 let rank = (y / 90f32 * 3f32 - 10.5f32).floor() as usize;
                 let file = (x / 90f32 - 8.5f32).floor() as usize;
                 let index: usize = match (rank, file) {
-                    (0, 0) => 0,
-                    (0, 1) => 1,
-                    (1, 0) => 2,
-                    (1, 1) => 3,
-                    (2, 0) => 4,
-                    (2, 1) => 5,
-                    (3, 0) => 6,
-                    (3, 1) => 7,
-                    (4, 0) => 8,
-                    (4, 1) => 9,
-                    (5, 0) => 10,
-                    (5, 1) => 11,
-                    (6, 0) => 12,
-                    (6, 1) => 13,
-                    (7, 0) => 14,
-                    (7, 1) => 15,
-                    (8, 0) => 16,
-                    (8, 1) => 17,
-                    (9, 0) => 18,
-                    (9, 1) => 19,
-                    (10, 0) => 20,
-                    (10, 1) => 21,
-                    (11, 0) => 22,
-                    (11, 1) => 23,
+                    (0, 0) => 1,
+                    (0, 1) => 2,
+                    (1, 0) => 3,
+                    (1, 1) => 4,
+                    (2, 0) => 5,
+                    (2, 1) => 6,
+                    (3, 0) => 7,
+                    (3, 1) => 8,
+                    (4, 0) => 9,
+                    (4, 1) => 10,
+                    (5, 0) => 11,
+                    (5, 1) => 12,
+                    (6, 0) => 13,
+                    (6, 1) => 14,
+                    (7, 0) => 15,
+                    (7, 1) => 16,
+                    (8, 0) => 17,
+                    (8, 1) => 18,
+                    (9, 0) => 19,
+                    (9, 1) => 20,
+                    (10, 0) => 21,
+                    (10, 1) => 22,
+                    (11, 0) => 23,
+                    (11, 1) => 24,
                     _ => panic!("Out of bounds!"),
                 };
+
                 if index <= self.history.len() && !self.viewing_history {
                     self.history.push(self.game.get_fen());
-                    self.game.set_state_from_fen(&self.history[index]);
+                    self.game.set_state_from_fen(&self.history[index - 1]);
                     self.viewing_history = true;
-                } else if index < self.history.len() - 1 && self.viewing_history {
-                    self.game.set_state_from_fen(&self.history[index]);
-                } else if index == self.history.len() - 1 && self.viewing_history {
+                } else if index < self.history.len() && self.viewing_history {
+                    self.game.set_state_from_fen(&self.history[index - 1]);
+                } else if index == self.history.len() && self.viewing_history {
                     if let Some(current_turn) = self.history.pop() {
                         self.game.set_state_from_fen(&current_turn);
                         self.viewing_history = false;
@@ -752,5 +369,15 @@ fn get_colour(piece: Piece) -> Option<Colour> {
         | Piece::Bishop(c)
         | Piece::Pawn(c) => Some(c),
         Piece::Empty => None,
+    }
+}
+
+fn piece_to_char(piece: Piece) -> char {
+    match piece {
+        Piece::Queen(_colour) => 'q',
+        Piece::Rook(_colour) => 'r',
+        Piece::Bishop(_colour) => 'b',
+        Piece::Knight(_colour) => 'n',
+        _ => panic!("Piece doesn't have a char representation")
     }
 }
