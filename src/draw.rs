@@ -34,7 +34,7 @@ fn draw_rectangle(ctx: &mut Context, x: f32, y: f32, w: f32, h: f32, color: Colo
 }
 
 /// ## draw_sprite
-/// Helper function for drawing a sprite to the screen.
+/// Helper function that draws a sprite to the screen.
 /// The position is given as x * GRID_CELL_SIZE and y * GRID_CELL_SIZE.
 /// Which sprite is drawn is decided by piece.
 fn draw_sprite(appstate: &AppState, ctx: &mut Context, x: f32, y: f32, piece: Piece) {
@@ -55,15 +55,27 @@ fn draw_sprite(appstate: &AppState, ctx: &mut Context, x: f32, y: f32, piece: Pi
 }
 
 /// ## draw_text
-/// Helper function for drawing text to the screen.
+/// Helper function that draws text to the screen by calling draw_sizeable_text.
 /// The contents of the text is given by string. Which is then used to calculate the text_dimensions.
 /// The position of the text is given by x * GRID_CELL_SIZE - text_dimension.w / 2.0 (to center the text)
 /// and y * GRID_CELL_SIZE - text_dimension.h / 2.0 (to center the text).
 /// The color of the text is given by color.
 fn draw_text(ctx: &mut Context, x: f32, y: f32, color: Color, string: String) {
+    draw_sizeable_text(ctx, x, y, 30.0, 30.0, color, string);
+}
+
+/// ## draw_sizeable_text
+/// Helper function that draws text to the screen by calling draw_sizeable_text.
+/// The contents of the text is given by string. 
+/// The size of the text is given by w_pixels and h_pixel.
+/// The size and the contents is then used to calculate the text_dimensions.
+/// The position of the text is given by x * GRID_CELL_SIZE - text_dimension.w / 2.0 (to center the text)
+/// and y * GRID_CELL_SIZE - text_dimension.h / 2.0 (to center the text).
+/// The color of the text is given by color.
+fn draw_sizeable_text(ctx: &mut Context, x: f32, y: f32, w_pixel: f32, h_pixel: f32, color: Color, string: String) {
     let text = graphics::Text::new(
         graphics::TextFragment::from(string)
-            .scale(graphics::PxScale { x: 30.0, y: 30.0 }),
+            .scale(graphics::PxScale { x: w_pixel, y: h_pixel }),
     );
     let text_dimensions = text.dimensions(ctx);
     graphics::draw(
@@ -206,5 +218,27 @@ pub fn history(appstate: &AppState, ctx: &mut Context) {
         } else {
             break;
         }
+    }
+}
+
+/// ## info_text
+/// Draws the info_text.
+pub fn info_text(appstate: &AppState, ctx: &mut Context) {
+    draw_text(ctx, 9.5, 0.5, WHITE, format!("Turn: {}", appstate.game.turn));
+    draw_text(ctx, 9.5, 0.25, WHITE, format!("{:?} to move", appstate.game.current_turn));
+
+    match appstate.game.game_state {
+        murnion_chess::GameState::Checkmate if !appstate.viewing_history => {
+            draw_rectangle(ctx, 4.0 - 3.0/2.0, 3.0-0.5/2.0, 3.0, 0.5, CONTRAST_COLOR);
+            draw_sizeable_text(ctx, 4.0, 3.0, 45.0, 45.0, WHITE, format!("{} wins", match appstate.game.current_turn {
+            
+                Colour::Black => "White",
+                Colour::White => "Black"
+            }));
+            
+            draw_rectangle(ctx, 4.0 - 5.0/2.0, 4.0-1.0/2.0, 5.0, 1.0, CONTRAST_COLOR);
+            draw_sizeable_text(ctx, 4.0, 4.0, 90.0, 90.0, WHITE, format!("Checkmate"));
+        }
+        _ => ()
     }
 }

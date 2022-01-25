@@ -90,46 +90,7 @@ impl event::EventHandler<GameError> for AppState {
         draw::board(&self, ctx);
         draw::promotion_selector(&self, ctx);
         draw::history(&self, ctx);
-        
-        // create text representation
-        let turn_text = graphics::Text::new(
-            graphics::TextFragment::from(format!("Turn: {:?}", self.game.turn))
-                .scale(graphics::PxScale { x: 30.0, y: 30.0 }),
-        );
-        let color_text = graphics::Text::new(
-            graphics::TextFragment::from(format!("{:?} to move", self.game.current_turn))
-                .scale(graphics::PxScale { x: 30.0, y: 30.0 }),
-        );
-        let color_text_dimensions = color_text.dimensions(ctx);
-        // get size of text
-        let text_dimensions = turn_text.dimensions(ctx);
-
-        // draw text with light colouring in the ofboard part
-        graphics::draw(
-            ctx,
-            &turn_text,
-            graphics::DrawParam::default()
-                .color(WHITE)
-                .dest(ggez::mint::Point2 {
-                    x: (GRID_CELL_SIZE.0 as f32 * GRID_SIZE as f32)
-                        + (270f32 - text_dimensions.w as f32) / 2f32,
-                    y: ((GRID_CELL_SIZE.1 as f32 / 2f32) + text_dimensions.h as f32) / 2f32,
-                }),
-        )
-        .expect("Failed to draw text.");
-
-        graphics::draw(
-            ctx,
-            &color_text,
-            graphics::DrawParam::default()
-                .color(WHITE)
-                .dest(ggez::mint::Point2 {
-                    x: (GRID_CELL_SIZE.0 as f32 * GRID_SIZE as f32)
-                        + (270f32 - color_text_dimensions.w as f32) / 2f32,
-                    y: ((GRID_CELL_SIZE.1 as f32 / 2f32) - color_text_dimensions.h as f32) / 2f32,
-                }),
-        )
-        .expect("Failed to draw text.");
+        draw::info_text(&self, ctx);
 
         if self.viewing_history { // Move to function change to text on screen? Make text for if game over as well.
             let rectangle = graphics::Mesh::new_rectangle(
