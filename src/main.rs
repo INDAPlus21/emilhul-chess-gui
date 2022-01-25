@@ -87,13 +87,8 @@ impl event::EventHandler<GameError> for AppState {
         // clear interface with gray background colour
         graphics::clear(ctx, CONTRAST_COLOR);
 
-        // Draw grid
         draw::board(&self, ctx);
-        
-        // Draw promotion selector
         draw::promotion_selector(&self, ctx);
-
-        // Draw history
         draw::history(&self, ctx);
         
         // create text representation
@@ -136,7 +131,7 @@ impl event::EventHandler<GameError> for AppState {
         )
         .expect("Failed to draw text.");
 
-        if self.viewing_history {
+        if self.viewing_history { // Move to function change to text on screen? Make text for if game over as well.
             let rectangle = graphics::Mesh::new_rectangle(
                 ctx,
                 graphics::DrawMode::fill(),
@@ -175,7 +170,6 @@ impl event::EventHandler<GameError> for AppState {
                                 self.history.push(self.game.get_fen());
                                 self.game
                                     .take_turn(move_to_string((t.0, t.1), (rank, file)));
-                                self.game.select_promotion(piece_to_char(self.game.selected_promotion));
                             }
                             self.selected_square = None;
                             self.highlighted_squares = Vec::new();
@@ -278,8 +272,6 @@ impl event::EventHandler<GameError> for AppState {
                         self.viewing_history = false;
                     }
                 }
-            } else {
-                println!("Non-clickable element")
             }
         }
     }
@@ -369,15 +361,5 @@ fn get_colour(piece: Piece) -> Option<Colour> {
         | Piece::Bishop(c)
         | Piece::Pawn(c) => Some(c),
         Piece::Empty => None,
-    }
-}
-
-fn piece_to_char(piece: Piece) -> char {
-    match piece {
-        Piece::Queen(_colour) => 'q',
-        Piece::Rook(_colour) => 'r',
-        Piece::Bishop(_colour) => 'b',
-        Piece::Knight(_colour) => 'n',
-        _ => panic!("Piece doesn't have a char representation")
     }
 }

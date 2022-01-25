@@ -1,24 +1,20 @@
 use super::*;
 use ggez::graphics::Color;
 
+/// ## draw_square
+/// Helper function that draws a square to the screen by calling draw_rectangle.
+/// The square size of the square is 1x1 GRID_CELL_SIZE.
+/// The position of the square is given by x * GRID_CELL_SIZE and y * GRID_CELL_SIZE.
+/// The color of the square is given by color
 fn draw_square(ctx: &mut Context, x: f32, y: f32, color: Color) {
-    let rectangle = graphics::Mesh::new_rectangle(
-        ctx,
-        graphics::DrawMode::fill(),
-        graphics::Rect::new_i32(
-            (x * GRID_CELL_SIZE.0 as f32) as i32,
-            (y * GRID_CELL_SIZE.1 as f32) as i32,
-            GRID_CELL_SIZE.0 as i32,
-            GRID_CELL_SIZE.1 as i32,
-        ),
-        color
-    )
-    .expect("Failed to create square.");
-
-    graphics::draw(ctx, &rectangle, graphics::DrawParam::default())
-    .expect("Failed to draw highlight tile");
+    draw_rectangle(ctx, x, y, 1.0, 1.0, color);
 }
 
+/// ## draw rectangle
+/// Helper function that draws a rectangle to the screen.
+/// The size of the rectangle is wxh GRID_CELL_SIZE.
+/// The position of the rectangle is given by x * GRID_CELL_SIZE and y * GRID_CELL_SIZE.
+/// The color of the rectangle is given by color.
 fn draw_rectangle(ctx: &mut Context, x: f32, y: f32, w: f32, h: f32, color: Color) {
     let rectangle = graphics::Mesh::new_rectangle(
         ctx,
@@ -37,6 +33,10 @@ fn draw_rectangle(ctx: &mut Context, x: f32, y: f32, w: f32, h: f32, color: Colo
     .expect("Failed to draw highlight tile");
 }
 
+/// ## draw_sprite
+/// Helper function for drawing a sprite to the screen.
+/// The position is given as x * GRID_CELL_SIZE and y * GRID_CELL_SIZE.
+/// Which sprite is drawn is decided by piece.
 fn draw_sprite(appstate: &AppState, ctx: &mut Context, x: f32, y: f32, piece: Piece) {
     graphics::draw(
         ctx,
@@ -54,6 +54,33 @@ fn draw_sprite(appstate: &AppState, ctx: &mut Context, x: f32, y: f32, piece: Pi
     .expect("Failed to draw piece.");
 }
 
+/// ## draw_text
+/// Helper function for drawing text to the screen.
+/// The contents of the text is given by string. Which is then used to calculate the text_dimensions.
+/// The position of the text is given by x * GRID_CELL_SIZE - text_dimension.w / 2.0 (to center the text)
+/// and y * GRID_CELL_SIZE - text_dimension.h / 2.0 (to center the text).
+/// The color of the text is given by color.
+fn draw_text(ctx: &mut Context, x: f32, y: f32, color: Color, string: String) {
+    let text = graphics::Text::new(
+        graphics::TextFragment::from(string)
+            .scale(graphics::PxScale { x: 30.0, y: 30.0 }),
+    );
+    let text_dimensions = text.dimensions(ctx);
+    graphics::draw(
+        ctx,
+        &text,
+        graphics::DrawParam::default()
+            .color(color)
+            .dest(ggez::mint::Point2 {
+                x: x * GRID_CELL_SIZE.0 as f32 - text_dimensions.w / 2.0,
+                y: y * GRID_CELL_SIZE.1 as f32 - text_dimensions.h / 2.0,
+            }),
+    )
+    .expect("Failed to draw text.");
+}
+
+/// ## board
+/// Draws the board and the pieces on it. Also draws highlights in case of highlighted moves or selected squares.
 pub fn board(appstate: &AppState, ctx: &mut Context) {
     for _row in 0..8 {
         for _col in 0..8 {
@@ -101,6 +128,9 @@ pub fn board(appstate: &AppState, ctx: &mut Context) {
     }
 }
 
+/// ## promotion_selector
+/// Draws the promotion selector on the right side of the screen. 
+/// Highlights whichever piece is chosen for selection
 pub fn promotion_selector(appstate: &AppState, ctx: &mut Context) {
     // Draw squares
     draw_square(ctx, 8.5, 1.0, BLACK);
@@ -114,7 +144,7 @@ pub fn promotion_selector(appstate: &AppState, ctx: &mut Context) {
     draw_sprite(appstate, ctx, 8.5, 2.0, Piece::Bishop(Colour::White));
     draw_sprite(appstate, ctx, 9.5, 2.0, Piece::Knight(Colour::White));
 
-    // Draw highlighted square
+    // Draw highlighted piece
     match appstate.game.selected_promotion {
         Piece::Queen(_colour) => draw_sprite(appstate, ctx, 8.5, 1.0, Piece::Queen(Colour::Black)),
         Piece::Rook(_colour) => draw_sprite(appstate, ctx, 9.5, 1.0, Piece::Rook(Colour::Black)),
@@ -124,31 +154,17 @@ pub fn promotion_selector(appstate: &AppState, ctx: &mut Context) {
     }
 }
 
+/// ## history
+/// Draws the history viewer on the right side of the screen.
 pub fn history(appstate: &AppState, ctx: &mut Context) {
-    // Draw the history
     // Draw history label text
-    let history_text = graphics::Text::new(
-        graphics::TextFragment::from(format!("History"))
-            .scale(graphics::PxScale { x: 30.0, y: 30.0 }),
-    );
-    let history_text_dimensions = history_text.dimensions(ctx);
-    graphics::draw(
-        ctx,
-        &history_text,
-        graphics::DrawParam::default()
-            .color(WHITE)
-            .dest(ggez::mint::Point2 {
-                x: (GRID_CELL_SIZE.0 as f32 * GRID_SIZE as f32)
-                    + (270f32 - history_text_dimensions.w as f32) / 2f32,
-                y: (GRID_CELL_SIZE.1 as f32 * 3f32) + (GRID_CELL_SIZE.1 as f32 / 8f32),
-            }),
-    )
-    .expect("Failed to draw text.");
+    draw_text(ctx, 9.5, 3.25, WHITE, format!("History"));
 
     // Draw squares and count
     for i in 0..12 {
         // Draws squares
-        draw_rectangle(ctx, 
+        draw_rectangle(
+            ctx, 
             8.5 + 1.0 / 3.0, 
             3.5 + (i as f32) / 3.0, 
             2.0 / 3.0,
@@ -158,7 +174,8 @@ pub fn history(appstate: &AppState, ctx: &mut Context) {
                 _ => BLACK,
             }
         );
-        draw_rectangle(ctx, 
+        draw_rectangle(
+            ctx, 
             9.5, 
             3.5 + (i as f32) / 3.0, 
             2.0 / 3.0,
@@ -169,75 +186,22 @@ pub fn history(appstate: &AppState, ctx: &mut Context) {
             }
         );
 
-        /* Draw count
-        let history_text = graphics::Text::new(
-            graphics::TextFragment::from(format!("{:?}", i + 1))
-                .scale(graphics::PxScale { x: 30.0, y: 30.0 }),
+        // Draws turn numbers on left of history viewer
+        draw_text(
+            ctx, 
+            8.5, 
+            3.5 + (0.5 + i  as f32) / 3.0, 
+            WHITE, 
+            format!("{}", i + 1)
         );
-        let history_text_dimensions = history_text.dimensions(ctx);
-        graphics::draw(
-            ctx,
-            &history_text,
-            graphics::DrawParam::default()
-                .color(WHITE)
-                .dest(ggez::mint::Point2 {
-                    x: (GRID_CELL_SIZE.0 as f32 * GRID_SIZE as f32)
-                        + (GRID_CELL_SIZE.0 as f32 * 1.5f32
-                            - history_text_dimensions.w as f32)
-                            / 3f32,
-                    y: (GRID_CELL_SIZE.1 as f32 * 3.5f32)
-                        + (GRID_CELL_SIZE.1 as f32 * i as f32) / 3f32,
-                }),
-        )
-        .expect("Failed to draw text.");*/
     }
-    // Draw out history text
+
+    // Draw out history markers in history viewer
     for i in 0..24 {
         if i < appstate.history.len() {
             match i % 2 {
-                0 => {
-                    let history_text = graphics::Text::new(
-                        graphics::TextFragment::from(format!("{:?}", i + 1))
-                            .scale(graphics::PxScale { x: 30.0, y: 30.0 }),
-                    );
-                    let history_text_dimensions = history_text.dimensions(ctx);
-                    graphics::draw(
-                        ctx,
-                        &history_text,
-                        graphics::DrawParam::default().color(CONTRAST_COLOR).dest(
-                            ggez::mint::Point2 {
-                                x: (GRID_CELL_SIZE.0 as f32 * GRID_SIZE as f32)
-                                    + (105f32 - history_text_dimensions.w / 2f32),
-                                y: (GRID_CELL_SIZE.1 as f32 * 3.5f32)
-                                    + (GRID_CELL_SIZE.1 as f32 * ((i / 2) as f32).ceil())
-                                        / 3f32,
-                            },
-                        ),
-                    )
-                    .expect("Failed to draw text.");
-                }
-                1 => {
-                    let history_text = graphics::Text::new(
-                        graphics::TextFragment::from(format!("{:?}", i + 1))
-                            .scale(graphics::PxScale { x: 30.0, y: 30.0 }),
-                    );
-                    let history_text_dimensions = history_text.dimensions(ctx);
-                    graphics::draw(
-                        ctx,
-                        &history_text,
-                        graphics::DrawParam::default().color(CONTRAST_COLOR).dest(
-                            ggez::mint::Point2 {
-                                x: (GRID_CELL_SIZE.0 as f32 * GRID_SIZE as f32)
-                                    + (165f32 - history_text_dimensions.w / 2f32),
-                                y: (GRID_CELL_SIZE.1 as f32 * 3.5f32)
-                                    + (GRID_CELL_SIZE.1 as f32 * ((i / 2) as f32).ceil())
-                                        / 3f32,
-                            },
-                        ),
-                    )
-                    .expect("Failed to draw text.");
-                }
-                _ => panic!("How 2?"),
+                0 => draw_text(ctx, 9.0 + 1.0 / 6.0, 3.5 + (0.5 + i as f32 / 2.0) / 3.0, CONTRAST_COLOR, format!("{}", i + 1)),
+                _ => draw_text(ctx, 9.0 + 5.0 / 6.0, 3.5 + (0.5 + (i as f32 / 2.0).floor()) / 3.0, CONTRAST_COLOR, format!("{}", i + 1)),
             }
         } else {
             break;
